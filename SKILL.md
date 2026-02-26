@@ -19,18 +19,23 @@ Implement and run a local HTTP wrapper around yt-dlp with production patterns:
 - Proxy + cookies strategy: `references/proxy-cookie-strategy.md`
 - Hardening + ops + monitoring: `references/hardening-ops.md`
 - Failure triage: `references/troubleshooting.md`
+- Exact implementation parity checklist: `references/local-parity-checklist.md`
 
-## Standard Build Plan
+## Standard Build Plan (Exact Replica Path)
 
 1. Create service directory and Python venv.
-2. Install dependencies (`flask`, `yt-dlp`).
-3. Add `config.py` env loader + platform config.
-4. Add `app.py` API server with retries + per-platform yt-dlp options.
-5. Add systemd unit.
-6. Add cookie files and env wiring.
-7. Add proxy env and per-platform sticky ports.
-8. Start service and verify `/health` + endpoint smoke tests.
-9. Integrate OpenClaw workflows to call the local API, not direct CLI.
+2. Copy **reference implementation files** from `assets/service-template/`:
+   - `app.py`
+   - `config.py`
+   - `requirements.txt`
+   - `.env.example` -> `.env`
+   - `yt-dlp-local.service.template` -> rendered systemd unit
+3. Install dependencies from `requirements.txt`.
+4. Add cookie files under `cookies/` and wire env paths.
+5. Add proxy env and per-platform sticky ports.
+6. Install/start systemd unit.
+7. Run smoke tests and parity checklist (`references/local-parity-checklist.md`).
+8. Integrate OpenClaw workflows to call local API, not direct CLI.
 
 ## Directory Layout
 
@@ -67,14 +72,14 @@ yt-dlp-local/
 
 ## `.env` Template (Sanitized)
 
-Use placeholders only:
+Use placeholders only (do not publish personal paths, host IPs, usernames, or keys):
 
 ```bash
 HOST=127.0.0.1
 PORT=5000
 
-DOWNLOAD_DIR=/opt/yt-dlp-local/downloads
-LOG_DIR=/opt/yt-dlp-local/logs
+DOWNLOAD_DIR=<SERVICE_DIR>/downloads
+LOG_DIR=<SERVICE_DIR>/logs
 
 YOUTUBE_COOKIES=cookies/youtube.txt
 INSTAGRAM_COOKIES=cookies/instagram.txt
@@ -96,13 +101,16 @@ PROXY_PORT_DEFAULT=20506
 
 ## Service Management (systemd)
 
-Install unit and enable:
+Render/install unit from template and enable:
 
 ```bash
-sudo cp yt-dlp-local.service /etc/systemd/system/yt-dlp-local.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now yt-dlp-local
-sudo systemctl status yt-dlp-local
+# Option 1: helper script
+sudo scripts/install-systemd.sh <SERVICE_DIR> <SERVICE_USER>
+
+# Option 2: manual render + install
+# 1) replace <SERVICE_DIR> and <SERVICE_USER> in assets/service-template/yt-dlp-local.service.template
+# 2) copy to /etc/systemd/system/yt-dlp-local.service
+# 3) daemon-reload + enable --now
 ```
 
 ## API Contract (Core)
@@ -112,6 +120,7 @@ sudo systemctl status yt-dlp-local
 - `POST /api/download` → full video download
 - `POST /api/audio` → audio-only extraction
 - `POST /api/formats` → available formats
+- `POST /api/instagram/private` → Instagram private/auth fallback path
 - `GET /api/serve/<path>` → file serving (optional)
 
 See exact examples: `references/api-contract.md`.

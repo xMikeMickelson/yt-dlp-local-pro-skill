@@ -1,0 +1,17 @@
+[Unit]
+Description=YT-DLP Local Service
+After=network.target
+
+[Service]
+Type=simple
+User=<SERVICE_USER>
+WorkingDirectory=<SERVICE_DIR>
+Environment=PATH=<SERVICE_DIR>/venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=<SERVICE_DIR>/venv/bin/python app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

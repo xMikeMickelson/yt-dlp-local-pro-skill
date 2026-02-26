@@ -113,6 +113,23 @@ Returns list of formats (`format_id`, codecs, size hints, resolution, bitrate).
 
 ---
 
+## `POST /api/instagram/private`
+
+### Purpose
+Explicit Instagram fallback endpoint for private/gated media where standard extraction fails.
+
+### Body
+```json
+{ "url": "https://www.instagram.com/reel/SHORTCODE/", "quality": "best" }
+```
+
+### Notes
+- Uses authenticated cookie path.
+- Requires valid Instagram `sessionid` for private content.
+- May return `method: yt-dlp-authenticated` or `method: instagram-private-api`.
+
+---
+
 ## `GET /api/serve/<path>`
 
 ### Purpose
