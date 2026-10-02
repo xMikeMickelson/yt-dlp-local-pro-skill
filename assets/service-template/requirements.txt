@@ -1,2 +1,10 @@
 flask>=3.0.0
-yt-dlp>=2024.1.0
+# Current yt-dlp (2026.08.19+). default extras plus curl-cffi so extractors can
+# impersonate when they choose to. Do not pin a 2024 floor and do not force
+# a global impersonate target in YoutubeDL options.
+yt-dlp[default,curl-cffi]>=2026.8.19
+
+# Optional Linux-only extra. secretstorage lets --cookies-from-browser decrypt
+# Chromium cookies via the Gnome keyring. Do not require it: it does not
+# install cleanly on non-Linux and Netscape cookie files do not need it.
+#   pip install 'yt-dlp[secretstorage]'
