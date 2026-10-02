@@ -36,10 +36,25 @@ LOG_DIR = Path(os.environ.get('LOG_DIR', str(BASE_DIR / 'logs'))).resolve()
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# Cookie files (optional)
+# Cookie files (optional). Netscape format; see references/proxy-cookie-strategy.md.
 YOUTUBE_COOKIES = os.environ.get('YOUTUBE_COOKIES', '')
 INSTAGRAM_COOKIES = os.environ.get('INSTAGRAM_COOKIES', '')
 TIKTOK_COOKIES = os.environ.get('TIKTOK_COOKIES', '')
+TWITTER_COOKIES = os.environ.get('TWITTER_COOKIES', '')
+
+# Optional yt-dlp --cookies-from-browser value (BROWSER[+KEYRING][:PROFILE][::CONTAINER]).
+# Used only for a platform that has no cookie file. Not required.
+COOKIES_FROM_BROWSER = os.environ.get('COOKIES_FROM_BROWSER', '').strip()
+
+# Must match the browser that exported cookies (UA mismatch invalidates sessions).
+# Verified against Chrome Releases on 2026-10-01: stable desktop Chrome
+# 154.0.8037.97/.98 (Windows/Mac) and 154.0.8037.97 (Linux). Reduced UA keeps
+# the major version only, which is what current Chrome sends.
+DEFAULT_USER_AGENT = (
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+    '(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36'
+)
+USER_AGENT = os.environ.get('USER_AGENT', '').strip() or DEFAULT_USER_AGENT
 
 # Resolve cookie paths relative to BASE_DIR if not absolute
 def resolve_cookie_path(cookie_path: str) -> str:
@@ -55,6 +70,38 @@ def resolve_cookie_path(cookie_path: str) -> str:
 YOUTUBE_COOKIES = resolve_cookie_path(YOUTUBE_COOKIES)
 INSTAGRAM_COOKIES = resolve_cookie_path(INSTAGRAM_COOKIES)
 TIKTOK_COOKIES = resolve_cookie_path(TIKTOK_COOKIES)
+TWITTER_COOKIES = resolve_cookie_path(TWITTER_COOKIES)
+
+
+def parse_cookies_from_browser(value: str):
+    """Parse yt-dlp's BROWSER[+KEYRING][:PROFILE][::CONTAINER] into a tuple.
+
+    Returns None when unset. This is the documented --cookies-from-browser
+    syntax, not a new flag.
+    """
+    if not value:
+        return None
+    container = None
+    if '::' in value:
+        value, container = value.split('::', 1)
+        container = container.strip() or None
+    profile = None
+    if ':' in value:
+        value, profile = value.split(':', 1)
+        profile = profile.strip() or None
+    keyring = None
+    if '+' in value:
+        browser, keyring = value.split('+', 1)
+        keyring = keyring.strip() or None
+    else:
+        browser = value
+    browser = browser.strip()
+    if not browser:
+        return None
+    return (browser, profile, keyring, container)
+
+
+COOKIES_FROM_BROWSER_SPEC = parse_cookies_from_browser(COOKIES_FROM_BROWSER)
 
 # Proxy configuration (Decodo sticky mobile proxies)
 PROXY_HOST = os.environ.get('PROXY_HOST', '')
@@ -79,4 +126,4 @@ def get_proxy_url(platform: str) -> str:
     return f'http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{port}'
 
 # Version
-VERSION = '1.1.0'
+VERSION = '1.2.0'

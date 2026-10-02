@@ -16,7 +16,7 @@ fi
 
 source venv/bin/activate
 pip install --upgrade pip
-pip install flask yt-dlp
+pip install 'flask>=3.0.0' 'yt-dlp[default,curl-cffi]>=2026.8.19'
 
 echo "Bootstrap complete at: $TARGET_DIR"
 echo "Next: copy app.py/config.py/.env + install systemd unit"
