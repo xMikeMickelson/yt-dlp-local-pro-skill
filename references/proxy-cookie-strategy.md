@@ -29,6 +29,15 @@ Use dedicated cookie files per platform.
 - `cookies/youtube.txt`
 - `cookies/instagram.txt`
 - `cookies/tiktok.txt`
+- `cookies/twitter.txt` (optional; when absent, logged-out X uses `twitter:api=syndication`)
+
+Files must be Netscape format. The first line is `# Netscape HTTP Cookie File`.
+Instagram gated downloads need `sessionid`. TikTok needs `sid_tt`. Do not print those values.
+
+`--cookies-from-browser` is optional and is used only when that platform has no cookie file.
+On Linux, Chromium decryption needs the optional `secretstorage` extra (Gnome keyring). Do not require it on other platforms.
+
+The request User-Agent must match the browser that exported the cookies. Set `USER_AGENT` when it does not. The default is reduced Chrome 154 (`Chrome/154.0.0.0`), matching stable `154.0.8037.97` verified 2026-10-01.
 
 ### Instagram hardening pattern
 
@@ -49,10 +58,11 @@ Flow:
 - Set strict permissions (`chmod 600`).
 - Never commit cookies to git.
 - Rotate if repeated auth failures appear.
+- After a login wall, or when yt-dlp reports the Instagram cookies are no longer valid, re-export. Do not keep using a jar yt-dlp invalidated. With curl-cffi the `sessionid` may remain in the file even after yt-dlp tried to clear it.
 
 ## Header + Extractor Tuning
 
-For sensitive platforms (Instagram/TikTok), add realistic headers and extractor args where supported.
+For Instagram, pass documented `extractor_args` `app_id=web` (the default, `936619743392459`) and a User-Agent that matches the cookie export. If web returns a login wall or empty media, retry once with `app_id=ios`. Do not invent TikTok `app_info` or `device_id`. Do not force a global impersonate target; install the `curl-cffi` extra instead.
 
 ## Failure Policy
 

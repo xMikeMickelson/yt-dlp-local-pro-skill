@@ -46,8 +46,10 @@ Cause:
 - output template mismatch
 
 Fix:
-- glob for `<title>-<id>.*` after download
-- pick most recent matching file
+- collect every file written in the platform directory during the run
+- carousels and stories produce multiple media files plus `.info.json`, `.description`, and subtitles
+- template is `%(title).80S [%(id)s] %(playlist_index|)s.%(ext)s` under `paths.home`
+- do not assume one `<title>-<id>.*` file
 
 ---
 
@@ -82,3 +84,48 @@ Fix:
 - add request queue or worker model
 - cap concurrent downloads
 - tune system resources and systemd restart policy
+
+---
+
+## 8) TikTok status 10204
+
+Cause:
+- TikTok is blocking the source IP
+
+Fix:
+- rotate proxy or source address
+- do not invent `app_info` or `device_id` extractor args
+
+---
+
+## 9) TikTok `/photo/` URL
+
+Cause:
+- the video extractor does not accept photo posts
+
+Fix:
+- pass a `/video/` URL
+- `vm.tiktok.com` and `vt.tiktok.com` short links to videos still work
+
+---
+
+## 10) Instagram profile or `/share/` URL
+
+Cause:
+- `instagram:user` is broken (`_WORKING = False`)
+- `/share/` is excluded from the post extractor
+
+Fix:
+- pass `/p/`, `/reel/`, `/tv/`, or `/stories/` (highlights included)
+- open a share link in the browser and copy the canonical URL
+
+---
+
+## 11) Logged-out X/Twitter fails on the default API
+
+Cause:
+- graphql is a poor fit without cookies
+
+Fix:
+- with no Twitter cookie file and no `--cookies-from-browser`, the service sets `twitter:api=syndication`
+- if cookies are configured, leave the default API and refresh the jar instead of forcing syndication
