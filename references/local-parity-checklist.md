@@ -1,4 +1,4 @@
-# Local Parity Checklist (v1.1.0)
+# Local Parity Checklist (v1.2.0)
 
 This checklist mirrors the reference implementation in `assets/service-template/`.
 Use it to verify your deployed instance behaves the same way.
@@ -6,7 +6,7 @@ Use it to verify your deployed instance behaves the same way.
 ## 1) Config + Environment
 
 - [ ] `HOST`, `PORT`, `DOWNLOAD_DIR`, `LOG_DIR` loaded from env/.env
-- [ ] cookie vars present: `YOUTUBE_COOKIES`, `INSTAGRAM_COOKIES`, `TIKTOK_COOKIES`
+- [ ] cookie vars present: `YOUTUBE_COOKIES`, `INSTAGRAM_COOKIES`, `TIKTOK_COOKIES` (optional `TWITTER_COOKIES`, `COOKIES_FROM_BROWSER`, `USER_AGENT`)
 - [ ] proxy vars present: `PROXY_HOST`, `PROXY_USER`, `PROXY_PASS`
 - [ ] sticky ports present:
   - `PROXY_PORT_YOUTUBE`
@@ -45,9 +45,13 @@ Use it to verify your deployed instance behaves the same way.
 ## 5) Download Behavior
 
 - [ ] sanitize filename and cap title length
-- [ ] output path: `<download_dir>/<platform>/<title>-<id>.<ext>`
-- [ ] if duplicate exists, append timestamp suffix
-- [ ] return structured JSON (`success`, `file_path`, `file_size_mb`, etc.)
+- [ ] relative outtmpl under the platform dir (`paths.home`): `%(title).80S [%(id)s] %(playlist_index|)s.%(ext)s`
+- [ ] playlist results (carousels, stories) return every media file in `files`, plus `sidecars`
+- [ ] do not assume one `title-id.*` file
+- [ ] `noplaylist` only when the request sets `noplaylist`, `single_slide`, or `single_frame`
+- [ ] return structured JSON (`success`, `file_path`, `files`, `file_size_mb`, etc.)
+- [ ] download options include writesubtitles, subtitleslangs `en.*` and `.*-orig`, writeinfojson, writedescription, retries 10, extractor_retries 3, fragment_retries 10, sleep_interval_requests 0.75, sleep_interval 5, max_sleep_interval 10
+- [ ] impersonate is not set globally; dependency is `yt-dlp[default,curl-cffi]`
 
 ## 6) Format Rules
 
@@ -59,13 +63,18 @@ Use it to verify your deployed instance behaves the same way.
 
 ## 7) Instagram-Specific Logic
 
-- [ ] extractor args set with web app id (`936619743392459`)
-- [ ] browser-like headers present for request hardening
+- [ ] extractor args default to web app id (`app_id=web`, `936619743392459`)
+- [ ] login wall or empty media retries once with `app_id=ios`
+- [ ] User-Agent comes from `USER_AGENT` and is documented as matching the cookie browser (default reduced Chrome 154)
 - [ ] uses `instagram_master.txt` copy to temp file when available
 - [ ] fallback trigger on auth/gating keywords in `/api/download`
 - [ ] `/api/instagram/private` fallback requires `sessionid` cookie
-- [ ] shortcode -> media id conversion path present
+- [ ] shortcode -> media id conversion path present for `/p/`, `/reel/`, `/reels/`, `/tv/`
+- [ ] stories and highlights are accepted by the private API fallback
+- [ ] `/share/` and `instagram:user` profile URLs are rejected with a clear error
 - [ ] fallback returns structured `yt_dlp_error` + `api_error` on dual failure
+- [ ] logged-out X sets `twitter:api=syndication`; cookies leave the default
+- [ ] TikTok `/photo/` is rejected; status 10204 tells the caller to rotate proxy or source address
 
 ## 8) Health Payload Parity
 
