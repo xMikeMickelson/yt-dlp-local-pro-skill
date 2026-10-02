@@ -69,6 +69,20 @@ yt-dlp-local/
 - writable download/log directories
 - valid cookie exports for gated platforms
 - proxy provider (optional but recommended for reliability)
+- `yt-dlp[default,curl-cffi]` at 2026.08.19 or newer (not a 2024 pin). curl-cffi is installed so extractors may impersonate themselves. Do **not** set a global `impersonate` target.
+- `secretstorage` is an optional Linux-only extra for `--cookies-from-browser` with Chromium and the Gnome keyring. Do not require it; it breaks non-Linux installs. Netscape cookie files do not need it.
+
+## Short-form downloads for transcription (yt-dlp 2026.08.19)
+
+Follow these rules. Do not invent extractor flags.
+
+1. **Install** `yt-dlp[default,curl-cffi]`. Impersonation support is the extra, not a forced `impersonate=` option.
+2. **Every download** sets `writesubtitles`, `subtitleslangs` `en.*` and `.*-orig`, `writeinfojson`, and `writedescription`, plus `retries` 10, `extractor_retries` 3, `fragment_retries` 10, `sleep_interval_requests` 0.75, `sleep_interval` 5, `max_sleep_interval` 10. Sidecars (`.info.json`, `.description`, `.vtt`/`.srt`) sit next to the media for transcription.
+3. **Output** is a relative template under the platform directory so `paths.home` works: `%(title).80S [%(id)s] %(playlist_index|)s.%(ext)s`. Carousels and stories are playlists: read the `files` array. Do not look for one `title-id.*` file. `noplaylist` is true only when the caller passes `noplaylist` (or `single_slide` / `single_frame`) for one slide or frame.
+4. **Instagram** keeps web `app_id` (`web` / `936619743392459`) as the default. If that returns a login wall or empty media, the service retries **once** with `extractor_args` `instagram:app_id=ios`. Stories and highlights (`/stories/...`, `/stories/highlights/<id>`) are valid, including on the private API fallback, which is not limited to `p|reel|tv`. `instagram:user` is broken (`InstagramUserIE._WORKING = False`); do not pass a profile URL. `/share/` URLs are excluded; use the canonical `/p/`, `/reel/`, or `/tv/` URL.
+5. **TikTok** has no invented `app_info` or `device_id`. Status **10204** means an IP block: rotate proxy or source address. `/photo/` posts are rejected with a clear error; the video extractor does not accept them. `vm.tiktok.com` and `vt.tiktok.com` short links still work.
+6. **Logged-out X/Twitter** sets `extractor_args` `twitter:api=syndication`. If a Twitter cookie file or `--cookies-from-browser` is configured, leave the default API alone.
+7. **Cookies** are Netscape format and must start with `# Netscape HTTP Cookie File`. Instagram needs `sessionid`. TikTok needs `sid_tt`. After a login wall, or when yt-dlp says the cookies are no longer valid, re-export. Do not keep a jar yt-dlp invalidated (with curl-cffi the cookie may not even be cleared from the file). Optional `--cookies-from-browser` is used only when that platform has no cookie file. The User-Agent must match the browser that exported the cookies (`USER_AGENT`). The built-in default is reduced Chrome 154, matching stable `154.0.8037.97` verified 2026-10-01.
 
 ## `.env` Template (Sanitized)
 
@@ -84,6 +98,10 @@ LOG_DIR=<SERVICE_DIR>/logs
 YOUTUBE_COOKIES=cookies/youtube.txt
 INSTAGRAM_COOKIES=cookies/instagram.txt
 TIKTOK_COOKIES=cookies/tiktok.txt
+# Optional. Unset => logged-out X uses twitter:api=syndication.
+# TWITTER_COOKIES=cookies/twitter.txt
+# COOKIES_FROM_BROWSER=chrome
+# USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
 
 # Optional proxy
 PROXY_HOST=proxy-provider.example.com
@@ -147,11 +165,13 @@ On hard failures, trigger platform-specific fallback paths instead of immediate 
 
 ## Instagram Playbook (Critical)
 
-1. First attempt normal yt-dlp path with cookies + proxy.
-2. Preserve a master cookie file (`instagram_master.txt`).
-3. Use a temporary copy for requests so session cookies are not corrupted.
-4. For gated failures (`login required`, `private`, `rate-limit`), fallback to private API path when authorized cookies exist.
-5. Return structured error with both primary and fallback failure details if both paths fail.
+1. First attempt normal yt-dlp path with cookies + proxy and web `app_id`.
+2. If the web client returns a login wall or empty media, retry once with `app_id=ios`. Do not switch the default to ios.
+3. Preserve a master cookie file (`instagram_master.txt`).
+4. Use a temporary copy for requests so session cookies are not corrupted. If yt-dlp invalidates the jar, re-export; do not reuse it.
+5. For gated failures (`login required`, `private`, `rate-limit`, empty media), fall back to the private API when a `sessionid` cookie exists. That fallback accepts `/p/`, `/reel/`, `/reels/`, `/tv/`, and `/stories/` including highlights, and saves every video in a carousel or story, not just the first.
+6. Do not send `instagram:user` profile URLs or `/share/` URLs.
+7. Return structured error with both primary and fallback failure details if both paths fail.
 
 ## OpenClaw Integration Rules
 
@@ -186,11 +206,12 @@ Do not default to direct `yt-dlp` CLI in agent flows unless explicitly required 
 ## Troubleshooting Workflow
 
 1. Confirm service is running.
-2. Confirm cookie files exist and are readable.
-3. Confirm proxy credentials/ports.
+2. Confirm cookie files exist, are Netscape format, and are readable. Confirm Instagram `sessionid` and TikTok `sid_tt` without printing the values.
+3. Confirm proxy credentials/ports. On TikTok `10204`, rotate proxy or source address.
 4. Reproduce with `/api/extract` first.
-5. Retry with `/api/download` and inspect returned error payload.
-6. For Instagram: verify session cookie validity and fallback behavior.
+5. Retry with `/api/download` and inspect returned error payload. Read `files` and `sidecars`, not a single guessed filename.
+6. For Instagram: verify session cookie validity, web-then-ios retry, and story/highlight fallback. Re-export cookies after a login wall.
+7. For logged-out X, confirm syndication is selected only when no Twitter cookies are configured.
 
 Use `references/troubleshooting.md` for symptom-driven fixes.
 
