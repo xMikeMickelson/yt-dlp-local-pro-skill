@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Watch Later CLI dispatcher.  wl <dl|transcribe|clip|moments|lib|sync|track|doctor|help> ...
+H="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"; export WL_HOME="${WL_HOME:-$H}"
+PY="$WL_HOME/venv/bin/python"; S="$WL_HOME/scripts"; export PATH="$WL_HOME/bin:$WL_HOME/venv/bin:$PATH"
+cmd="${1:-help}"; shift || true
+case "$cmd" in
+  dl|download) exec "$PY" "$S/wl_dl.py" "$@";;
+  doctor) exec "$PY" "$S/wl_dl.py" --doctor;;
+  transcribe|tx) exec "$PY" "$S/wl_transcribe.py" "$@";;
+  clip) exec "$PY" "$S/wl_clip.py" "$@";;
+  moments|best) exec "$PY" "$S/wl_moments.py" "$@";;
+  lib|library|search) [[ $cmd == search ]] && set -- search "$@"; exec "$PY" "$S/wl_library.py" "$@";;
+  sync) exec "$PY" "$S/wl_sync.py" "$@";;
+  track) exec "$PY" "$S/wl_sync.py" track "$@";;
+  update) exec bash "$WL_HOME/install.sh" "$@";;
+  help|*) cat <<'H'
+Watch Later  (public content only; no DRM; no cookies unless the user supplies their own file)
+  wl dl <url> [--audio|--subs-only|--meta] [--max-height 720] [--cookies FILE]   download with fallback chain
+  wl transcribe <url|file> [--speakers N] [--engine auto|assemblyai|whisper|captions]
+  wl moments <T.transcript.json> [--n 8] [--prompt | --snap picks.json]         best-moment candidates
+  wl clip make <video> --start S --end E [--transcript T.json] [--vertical face|center|blur|none] [--style bold|clean|karaoke|boxed] [--trim-silence]
+  wl clip cut|mp3|silence|vertical|captions <file> ...                             single ffmpeg ops
+  wl lib ingest <T.json> | wl search "query" [--platform youtube --author example] | wl lib list|show|stats|digest [--days 7]
+  wl track add <youtube|x|tiktok|instagram|facebook|other> <handle|url> | wl track list
+  wl sync [--limit 5] [--audio-only] [--dry-run]                                    new videos -> transcribe -> library
+  wl doctor | wl update
+H
+  ;;
+esac
