@@ -13,7 +13,7 @@ Usage:
 Times accept 75, 75.5, 1:15, 0:01:15.5. Output defaults to data/clips/. Prints output path.
 Face mode uses OpenCV Haar cascades (no GPU/model download); falls back to center crop if no faces found.
 """
-import argparse, json, os, pathlib, subprocess, sys, tempfile, statistics
+import argparse, json, os, pathlib, shutil, subprocess, sys, tempfile, statistics
 from wl_common import DATA, log, parse_ts, ffprobe_duration, video_size, caption_cues, write_ass, write_srt, slug, load_transcript
 
 OUT = DATA / "clips"
@@ -209,36 +209,38 @@ def make(src, start=None, end=None, transcript=None, vertical="face", style="bol
     tag = f"short_{s_ms//1000}-{e_ms//1000}" if vertical != "none" else f"clip_{s_ms//1000}-{e_ms//1000}"
     o = outpath(src, tag, out=out)
     work = tempfile.mkdtemp(prefix="wlclip_", dir=str(DATA))
-    seg = os.path.join(work, "seg.mp4")
-    ff(["-ss", f"{s_ms/1000}", "-i", src, "-t", f"{(e_ms - s_ms)/1000}"] + ENC + [seg])
-    words = None
-    if transcript:
-        t = load_transcript(transcript)
-        o_ms = s_ms + src_offset; oe_ms = e_ms + src_offset
-        words = [dict(w, start=w["start"] - o_ms, end=w["end"] - o_ms) for w in t.get("words", []) if w["start"] >= o_ms - 50 and w["end"] <= oe_ms + 50]
-    if trim_silence:
-        seg2, segs = silence(seg, out=os.path.join(work, "trim.mp4"))
+    try:
+        seg = os.path.join(work, "seg.mp4")
+        ff(["-ss", f"{s_ms/1000}", "-i", src, "-t", f"{(e_ms - s_ms)/1000}"] + ENC + [seg])
+        words = None
+        if transcript:
+            t = load_transcript(transcript)
+            o_ms = s_ms + src_offset; oe_ms = e_ms + src_offset
+            words = [dict(w, start=w["start"] - o_ms, end=w["end"] - o_ms) for w in t.get("words", []) if w["start"] >= o_ms - 50 and w["end"] <= oe_ms + 50]
+        if trim_silence:
+            seg2, segs = silence(seg, out=os.path.join(work, "trim.mp4"))
+            if words:
+                words = remap_words(words, segs)
+            seg = seg2
+        W, H = video_size(seg)
+        vf = []
+        if vertical != "none" and W and H:
+            vf.append(vertical_filter(seg, vertical, 0, None, W, H))
+            oW, oH = 1080, 1920
+        else:
+            oW, oH = W, H
         if words:
-            words = remap_words(words, segs)
-        seg = seg2
-    W, H = video_size(seg)
-    vf = []
-    if vertical != "none" and W and H:
-        vf.append(vertical_filter(seg, vertical, 0, None, W, H))
-        oW, oH = 1080, 1920
-    else:
-        oW, oH = W, H
-    if words:
-        cues = caption_cues(words, 22 if vertical != "none" else 40, 2000)
-        ass = write_ass(cues, os.path.join(work, "cap.ass"), oW, oH, style)
-        write_srt(cues, o.rsplit(".", 1)[0] + ".srt")
-        vf.append(f"subtitles='{esc_path(ass)}'")
-    if vf:
-        graph = ",".join(vf) if "split" not in vf[0] else vf[0] + ("," + ",".join(vf[1:]) if len(vf) > 1 else "")
-        ff(["-i", seg, "-filter_complex", f"[0:v]{graph}[v]", "-map", "[v]", "-map", "0:a?"] + ENC + [o])
-    else:
-        os.replace(seg, o)
-    subprocess.run(["rm", "-rf", work])
+            cues = caption_cues(words, 22 if vertical != "none" else 40, 2000)
+            ass = write_ass(cues, os.path.join(work, "cap.ass"), oW, oH, style)
+            write_srt(cues, o.rsplit(".", 1)[0] + ".srt")
+            vf.append(f"subtitles='{esc_path(ass)}'")
+        if vf:
+            graph = ",".join(vf) if "split" not in vf[0] else vf[0] + ("," + ",".join(vf[1:]) if len(vf) > 1 else "")
+            ff(["-i", seg, "-filter_complex", f"[0:v]{graph}[v]", "-map", "[v]", "-map", "0:a?"] + ENC + [o])
+        else:
+            os.replace(seg, o)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
     return o
 
 
