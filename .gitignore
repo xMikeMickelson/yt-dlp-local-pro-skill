@@ -1,3 +1,11 @@
 .DS_Store
 *.pyc
 __pycache__/
+
+# Watch Later runtime created by bootstrap.sh / install.sh
+watch-later/venv/
+watch-later/bin/
+watch-later/data/
+watch-later/tmp/
+watch-later/logs/
+watch-later/pot/

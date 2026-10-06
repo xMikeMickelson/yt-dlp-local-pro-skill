@@ -1,0 +1,9 @@
+{
+  "_comment": "Public accounts only. Lists ship empty. Example shape, not a watchlist: youtube [\"@example\"], x [\"example\"], tiktok [\"example\"], instagram [\"example\"], facebook [\"example\"], other [\"https://www.youtube.com/@example\"]. Run: wl sync [--limit N] [--no-transcribe]",
+  "youtube": [],
+  "x": [],
+  "tiktok": [],
+  "instagram": [],
+  "facebook": [],
+  "other": []
+}
